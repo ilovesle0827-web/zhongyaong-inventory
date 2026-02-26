@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <polygon points="50,5 95,27.5 95,72.5 50,95 5,72.5 5,27.5" fill="none" stroke="#00d4ff" stroke-width="4"/>
+  <polygon points="50,20 80,35 80,65 50,80 20,65 20,35" fill="rgba(0,212,255,0.15)" stroke="#00d4ff" stroke-width="2"/>
+  <text x="50" y="57" text-anchor="middle" font-family="sans-serif" font-size="28" font-weight="bold" fill="#00d4ff">仲</text>
+</svg>

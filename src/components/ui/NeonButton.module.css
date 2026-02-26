@@ -1,0 +1,86 @@
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border-radius: 8px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  transition: all 0.25s ease;
+  white-space: nowrap;
+  font-family: var(--font-sans);
+}
+
+.btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+/* 尺寸 */
+.sm {
+  padding: 5px 12px;
+  font-size: 12px;
+}
+
+.md {
+  padding: 8px 18px;
+  font-size: 13px;
+}
+
+.lg {
+  padding: 11px 24px;
+  font-size: 14px;
+}
+
+/* 樣式變體 */
+.primary {
+  background: transparent;
+  border: 1px solid var(--neon-cyan);
+  color: var(--neon-cyan);
+  box-shadow: 0 0 10px rgba(0, 212, 255, 0.2), inset 0 0 10px rgba(0, 212, 255, 0.04);
+}
+
+.primary:hover {
+  background: rgba(0, 212, 255, 0.1);
+  box-shadow: 0 0 20px rgba(0, 212, 255, 0.45), inset 0 0 15px rgba(0, 212, 255, 0.08);
+}
+
+.secondary {
+  background: transparent;
+  border: 1px solid var(--border-glass);
+  color: var(--text-secondary);
+}
+
+.secondary:hover {
+  border-color: rgba(0, 212, 255, 0.3);
+  color: var(--text-primary);
+}
+
+.danger {
+  background: transparent;
+  border: 1px solid var(--neon-red);
+  color: var(--neon-red);
+  box-shadow: 0 0 10px rgba(255, 51, 102, 0.15);
+}
+
+.danger:hover {
+  background: rgba(255, 51, 102, 0.1);
+  box-shadow: 0 0 20px rgba(255, 51, 102, 0.35);
+}
+
+.success {
+  background: transparent;
+  border: 1px solid var(--neon-green);
+  color: var(--neon-green);
+}
+
+.success:hover {
+  background: rgba(0, 255, 136, 0.1);
+  box-shadow: 0 0 20px rgba(0, 255, 136, 0.3);
+}
+
+.icon {
+  display: flex;
+  align-items: center;
+}
