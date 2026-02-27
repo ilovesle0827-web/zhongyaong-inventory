@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react'
-import { Plus } from 'lucide-react'
+import { Plus, Pencil } from 'lucide-react'
 import GlassCard from '../components/ui/GlassCard.jsx'
 import DataTable from '../components/ui/DataTable.jsx'
 import NeonButton from '../components/ui/NeonButton.jsx'
@@ -15,12 +15,12 @@ function PurchaseForm({ items, onSave, onCancel }) {
     costPerUnit: '',
     purchaseDate: new Date().toISOString().slice(0, 10),
     notes: '',
+    updateCost: true,
   })
   const [error, setError] = useState('')
 
   function set(field, val) { setForm(f => ({ ...f, [field]: val })) }
 
-  // 當選擇商品時，自動填入成本
   function handleItemChange(itemId) {
     const item = items.find(i => i.id === itemId)
     setForm(f => ({ ...f, itemId, costPerUnit: item ? item.costPerUnit : '' }))
@@ -40,6 +40,8 @@ function PurchaseForm({ items, onSave, onCancel }) {
   }
 
   const subtotal = (Number(form.quantity) || 0) * (Number(form.costPerUnit) || 0)
+  const selectedItem = items.find(i => i.id === form.itemId)
+  const costChanged = selectedItem && Number(form.costPerUnit) !== selectedItem.costPerUnit
 
   return (
     <form onSubmit={handleSubmit}>
@@ -59,6 +61,20 @@ function PurchaseForm({ items, onSave, onCancel }) {
           <input className="form-input" type="number" min="0" step="0.01" value={form.costPerUnit} onChange={e => set('costPerUnit', e.target.value)} placeholder="0" />
         </div>
       </div>
+      {costChanged && (
+        <div className="form-group" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <input
+            type="checkbox"
+            id="updateCost"
+            checked={form.updateCost}
+            onChange={e => set('updateCost', e.target.checked)}
+            style={{ width: 16, height: 16, cursor: 'pointer' }}
+          />
+          <label htmlFor="updateCost" style={{ color: 'var(--neon-amber)', cursor: 'pointer', margin: 0 }}>
+            同時更新商品成本單價（原：{formatCurrency(selectedItem?.costPerUnit)} → 新：{formatCurrency(Number(form.costPerUnit))}）
+          </label>
+        </div>
+      )}
       <div className="form-group">
         <label className="form-label">進貨日期</label>
         <input className="form-input" type="date" value={form.purchaseDate} onChange={e => set('purchaseDate', e.target.value)} />
@@ -81,9 +97,55 @@ function PurchaseForm({ items, onSave, onCancel }) {
   )
 }
 
+function EditPurchaseForm({ purchase, onSave, onCancel }) {
+  const [form, setForm] = useState({
+    purchaseDate: purchase.purchaseDate || new Date().toISOString().slice(0, 10),
+    notes: purchase.notes || '',
+  })
+
+  function set(field, val) { setForm(f => ({ ...f, [field]: val })) }
+
+  function handleSubmit(e) {
+    e.preventDefault()
+    onSave(form)
+  }
+
+  return (
+    <form onSubmit={handleSubmit}>
+      <div className="form-group">
+        <label className="form-label">商品名稱</label>
+        <input className="form-input" value={purchase.itemName} disabled style={{ opacity: 0.5 }} />
+      </div>
+      <div className="form-row">
+        <div className="form-group">
+          <label className="form-label">數量</label>
+          <input className="form-input" value={purchase.quantity} disabled style={{ opacity: 0.5 }} />
+        </div>
+        <div className="form-group">
+          <label className="form-label">成本單價</label>
+          <input className="form-input" value={formatCurrency(purchase.costPerUnit)} disabled style={{ opacity: 0.5 }} />
+        </div>
+      </div>
+      <div className="form-group">
+        <label className="form-label">進貨日期</label>
+        <input className="form-input" type="date" value={form.purchaseDate} onChange={e => set('purchaseDate', e.target.value)} />
+      </div>
+      <div className="form-group">
+        <label className="form-label">備註</label>
+        <input className="form-input" value={form.notes} onChange={e => set('notes', e.target.value)} placeholder="選填" />
+      </div>
+      <div className="form-actions">
+        <NeonButton variant="secondary" onClick={onCancel}>取消</NeonButton>
+        <NeonButton type="submit" variant="primary">儲存修改</NeonButton>
+      </div>
+    </form>
+  )
+}
+
 export default function Purchases() {
-  const { purchases, items, subscribeAll, addPurchase } = useInventoryStore()
+  const { purchases, items, subscribeAll, addPurchase, updatePurchase } = useInventoryStore()
   const [modalOpen, setModalOpen] = useState(false)
+  const [editPurchase, setEditPurchase] = useState(null)
   const [addError, setAddError] = useState('')
 
   useEffect(() => { const unsub = subscribeAll(); return () => unsub() }, [])
@@ -107,6 +169,18 @@ export default function Purchases() {
       render: val => <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--neon-amber)', fontWeight: 700 }}>{formatCurrency(val)}</span>
     },
     { key: 'notes', label: '備註', render: val => val || <span style={{ color: 'var(--text-muted)' }}>-</span> },
+    {
+      key: 'actions', label: '操作', width: 70, align: 'center',
+      render: (_, row) => (
+        <button
+          style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)', padding: 4 }}
+          onClick={e => { e.stopPropagation(); setEditPurchase(row) }}
+          title="編輯"
+        >
+          <Pencil size={14} />
+        </button>
+      )
+    },
   ]
 
   return (
@@ -146,6 +220,19 @@ export default function Purchases() {
           }}
           onCancel={() => setModalOpen(false)}
         />
+      </Modal>
+
+      <Modal open={!!editPurchase} onClose={() => setEditPurchase(null)} title="編輯進貨記錄" width={480}>
+        {editPurchase && (
+          <EditPurchaseForm
+            purchase={editPurchase}
+            onSave={async (data) => {
+              await updatePurchase(editPurchase.id, data)
+              setEditPurchase(null)
+            }}
+            onCancel={() => setEditPurchase(null)}
+          />
+        )}
       </Modal>
     </div>
   )

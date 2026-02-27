@@ -26,11 +26,14 @@ const useInventoryStore = create((set, get) => ({
 
   // ============ 商品 CRUD ============
   addItem: async (item) => {
+    const duplicate = get().items.find(i => i.sku === item.sku)
+    if (duplicate) return { error: `商品代碼「${item.sku}」已存在，請使用不同代碼` }
     await addDoc(collection(db, 'items'), {
       ...item,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     })
+    return { success: true }
   },
 
   updateItem: async (id, patch) => {
@@ -57,10 +60,14 @@ const useInventoryStore = create((set, get) => ({
         const itemSnap = await tx.get(itemRef)
         const currentQty = itemSnap.data().quantity
 
-        tx.update(itemRef, {
+        const itemUpdate = {
           quantity: currentQty + purchase.quantity,
           updatedAt: new Date().toISOString(),
-        })
+        }
+        if (purchase.updateCost) {
+          itemUpdate.costPerUnit = purchase.costPerUnit
+        }
+        tx.update(itemRef, itemUpdate)
 
         const purchaseRef = doc(collection(db, 'purchases'))
         tx.set(purchaseRef, {
@@ -74,6 +81,10 @@ const useInventoryStore = create((set, get) => ({
     } catch (err) {
       return { error: err.message }
     }
+  },
+
+  updatePurchase: async (id, patch) => {
+    await updateDoc(doc(db, 'purchases', id), patch)
   },
 
   deletePurchase: async (id) => {

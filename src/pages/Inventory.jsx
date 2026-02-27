@@ -91,6 +91,7 @@ export default function Inventory() {
   const [modalOpen, setModalOpen] = useState(false)
   const [editItem, setEditItem] = useState(null)
   const [confirmDelete, setConfirmDelete] = useState(null)
+  const [formError, setFormError] = useState('')
 
   useEffect(() => { const unsub = subscribeAll(); return () => unsub() }, [])
 
@@ -157,7 +158,7 @@ export default function Inventory() {
             onChange={e => setSearch(e.target.value)}
           />
         </div>
-        <NeonButton icon={<Plus size={16} />} onClick={() => { setEditItem(null); setModalOpen(true) }}>
+        <NeonButton icon={<Plus size={16} />} onClick={() => { setEditItem(null); setFormError(''); setModalOpen(true) }}>
           新增商品
         </NeonButton>
       </div>
@@ -178,18 +179,24 @@ export default function Inventory() {
       {/* 新增/編輯 Modal */}
       <Modal
         open={modalOpen}
-        onClose={() => { setModalOpen(false); setEditItem(null) }}
+        onClose={() => { setModalOpen(false); setEditItem(null); setFormError('') }}
         title={editItem ? '編輯商品' : '新增商品'}
       >
+        {formError && <div className="form-error" style={{ marginBottom: 12 }}>{formError}</div>}
         <ItemForm
           initial={editItem}
-          onSave={(data) => {
-            if (editItem) updateItem(editItem.id, data)
-            else addItem(data)
+          onSave={async (data) => {
+            if (editItem) {
+              await updateItem(editItem.id, data)
+            } else {
+              const result = await addItem(data)
+              if (result?.error) { setFormError(result.error); return }
+            }
             setModalOpen(false)
             setEditItem(null)
+            setFormError('')
           }}
-          onCancel={() => { setModalOpen(false); setEditItem(null) }}
+          onCancel={() => { setModalOpen(false); setEditItem(null); setFormError('') }}
         />
       </Modal>
 
