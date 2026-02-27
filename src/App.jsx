@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useEffect } from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import AppShell from './components/layout/AppShell.jsx'
 import ProtectedRoute from './auth/ProtectedRoute.jsx'
@@ -9,8 +9,16 @@ import Purchases from './pages/Purchases.jsx'
 import Sales from './pages/Sales.jsx'
 import CustomerAnalysis from './pages/CustomerAnalysis.jsx'
 import UserManagement from './pages/UserManagement.jsx'
+import useAuthStore from './store/authStore.js'
 
 export default function App() {
+  const { subscribeUsers } = useAuthStore()
+
+  useEffect(() => {
+    const unsub = subscribeUsers()
+    return () => unsub()
+  }, [])
+
   return (
     <BrowserRouter>
       <Routes>
