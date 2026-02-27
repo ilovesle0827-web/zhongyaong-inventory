@@ -9,6 +9,7 @@ import Purchases from './pages/Purchases.jsx'
 import Sales from './pages/Sales.jsx'
 import CustomerAnalysis from './pages/CustomerAnalysis.jsx'
 import UserManagement from './pages/UserManagement.jsx'
+import AuditLog from './pages/AuditLog.jsx'
 import useAuthStore from './store/authStore.js'
 
 export default function App() {
@@ -56,6 +57,11 @@ export default function App() {
                   <Route path="/users" element={
                     <ProtectedRoute requiredPath="/users">
                       <UserManagement />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/audit" element={
+                    <ProtectedRoute requiredPath="/audit">
+                      <AuditLog />
                     </ProtectedRoute>
                   } />
                   <Route path="*" element={<Navigate to="/" replace />} />

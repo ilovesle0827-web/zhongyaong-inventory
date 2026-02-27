@@ -7,6 +7,7 @@ import {
   ShoppingCart,
   Users,
   UserCog,
+  ClipboardList,
   ChevronLeft,
   ChevronRight,
   LogOut,
@@ -23,6 +24,7 @@ const ALL_NAV_ITEMS = [
   { path: '/sales', icon: ShoppingCart, label: '銷貨記錄' },
   { path: '/customers', icon: Users, label: '客戶分析' },
   { path: '/users', icon: UserCog, label: '使用者管理' },
+  { path: '/audit', icon: ClipboardList, label: '操作紀錄' },
 ]
 
 export default function Sidebar({ collapsed, onToggle }) {

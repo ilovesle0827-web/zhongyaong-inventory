@@ -1,0 +1,19 @@
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+}
+
+.header {
+  display: flex;
+  align-items: center;
+}
+
+.count {
+  color: var(--text-secondary);
+  font-size: 14px;
+}
+
+.count strong {
+  color: var(--neon-cyan);
+}

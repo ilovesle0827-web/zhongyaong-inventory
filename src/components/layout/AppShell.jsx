@@ -11,6 +11,7 @@ const pageTitles = {
   '/sales': '銷貨記錄',
   '/customers': '客戶分析',
   '/users': '使用者管理',
+  '/audit': '操作紀錄',
 }
 
 export default function AppShell({ children }) {

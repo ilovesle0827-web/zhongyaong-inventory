@@ -18,7 +18,7 @@ export const ROLE_LABELS = {
 export const ROLES_CONFIG = {
   [ROLES.ADMIN]: {
     label: '管理員',
-    allowedPaths: ['/', '/inventory', '/purchases', '/sales', '/customers', '/users'],
+    allowedPaths: ['/', '/inventory', '/purchases', '/sales', '/customers', '/users', '/audit'],
     canAdd: true,
     canDelete: true,
     canManageUsers: true,

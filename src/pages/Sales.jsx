@@ -1,11 +1,12 @@
 import React, { useEffect, useState } from 'react'
-import { Plus } from 'lucide-react'
+import { Plus, Trash2 } from 'lucide-react'
 import GlassCard from '../components/ui/GlassCard.jsx'
 import DataTable from '../components/ui/DataTable.jsx'
 import NeonButton from '../components/ui/NeonButton.jsx'
 import Modal from '../components/ui/Modal.jsx'
 import useInventoryStore from '../store/inventoryStore.js'
 import useCustomerStore from '../store/customerStore.js'
+import { useAuth } from '../auth/useAuth.js'
 import { getMonthlyStats, getGrossMargin } from '../utils/calculations.js'
 import { formatCurrency, formatDate, formatPercent } from '../utils/formatters.js'
 import styles from './Sales.module.css'
@@ -96,10 +97,12 @@ function SaleForm({ items, customers, onSave, onCancel }) {
 }
 
 export default function Sales() {
-  const { sales, items, subscribeAll, addSale } = useInventoryStore()
+  const { canDelete } = useAuth()
+  const { sales, items, subscribeAll, addSale, deleteSale } = useInventoryStore()
   const { customers, subscribeAll: subCustomers } = useCustomerStore()
   const [modalOpen, setModalOpen] = useState(false)
   const [addError, setAddError] = useState('')
+  const [confirmDelete, setConfirmDelete] = useState(null)
 
   useEffect(() => {
     const unsub1 = subscribeAll()
@@ -145,6 +148,18 @@ export default function Sales() {
         return <span style={{ color: 'var(--neon-blue)' }}>{c?.name || val}</span>
       }
     },
+    ...(canDelete ? [{
+      key: 'actions', label: '操作', width: 70, align: 'center',
+      render: (_, row) => (
+        <button
+          style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--neon-red)', padding: 4 }}
+          onClick={e => { e.stopPropagation(); setConfirmDelete(row) }}
+          title="刪除"
+        >
+          <Trash2 size={14} />
+        </button>
+      )
+    }] : []),
   ]
 
   return (
@@ -189,6 +204,16 @@ export default function Sales() {
           }}
           onCancel={() => setModalOpen(false)}
         />
+      </Modal>
+
+      <Modal open={!!confirmDelete} onClose={() => setConfirmDelete(null)} title="確認刪除銷貨記錄" width={420}>
+        <p style={{ color: 'var(--text-secondary)', marginBottom: 'var(--space-lg)' }}>
+          確定要刪除「<strong style={{ color: 'var(--text-primary)' }}>{confirmDelete?.itemName}</strong>」的銷貨記錄嗎？此操作不會還原庫存，無法復原。
+        </p>
+        <div className="form-actions">
+          <NeonButton variant="secondary" onClick={() => setConfirmDelete(null)}>取消</NeonButton>
+          <NeonButton variant="danger" onClick={() => { deleteSale(confirmDelete.id); setConfirmDelete(null) }}>確認刪除</NeonButton>
+        </div>
       </Modal>
     </div>
   )

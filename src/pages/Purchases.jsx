@@ -1,10 +1,11 @@
 import React, { useEffect, useState } from 'react'
-import { Plus, Pencil } from 'lucide-react'
+import { Plus, Pencil, Trash2 } from 'lucide-react'
 import GlassCard from '../components/ui/GlassCard.jsx'
 import DataTable from '../components/ui/DataTable.jsx'
 import NeonButton from '../components/ui/NeonButton.jsx'
 import Modal from '../components/ui/Modal.jsx'
 import useInventoryStore from '../store/inventoryStore.js'
+import { useAuth } from '../auth/useAuth.js'
 import { formatCurrency, formatDate } from '../utils/formatters.js'
 import styles from './Purchases.module.css'
 
@@ -143,9 +144,11 @@ function EditPurchaseForm({ purchase, onSave, onCancel }) {
 }
 
 export default function Purchases() {
-  const { purchases, items, subscribeAll, addPurchase, updatePurchase } = useInventoryStore()
+  const { canDelete } = useAuth()
+  const { purchases, items, subscribeAll, addPurchase, updatePurchase, deletePurchase } = useInventoryStore()
   const [modalOpen, setModalOpen] = useState(false)
   const [editPurchase, setEditPurchase] = useState(null)
+  const [confirmDelete, setConfirmDelete] = useState(null)
   const [addError, setAddError] = useState('')
 
   useEffect(() => { const unsub = subscribeAll(); return () => unsub() }, [])
@@ -170,15 +173,26 @@ export default function Purchases() {
     },
     { key: 'notes', label: '備註', render: val => val || <span style={{ color: 'var(--text-muted)' }}>-</span> },
     {
-      key: 'actions', label: '操作', width: 70, align: 'center',
+      key: 'actions', label: '操作', width: canDelete ? 90 : 60, align: 'center',
       render: (_, row) => (
-        <button
-          style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)', padding: 4 }}
-          onClick={e => { e.stopPropagation(); setEditPurchase(row) }}
-          title="編輯"
-        >
-          <Pencil size={14} />
-        </button>
+        <div style={{ display: 'flex', gap: 4, justifyContent: 'center' }}>
+          <button
+            style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)', padding: 4 }}
+            onClick={e => { e.stopPropagation(); setEditPurchase(row) }}
+            title="編輯"
+          >
+            <Pencil size={14} />
+          </button>
+          {canDelete && (
+            <button
+              style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--neon-red)', padding: 4 }}
+              onClick={e => { e.stopPropagation(); setConfirmDelete(row) }}
+              title="刪除"
+            >
+              <Trash2 size={14} />
+            </button>
+          )}
+        </div>
       )
     },
   ]
@@ -233,6 +247,16 @@ export default function Purchases() {
             onCancel={() => setEditPurchase(null)}
           />
         )}
+      </Modal>
+
+      <Modal open={!!confirmDelete} onClose={() => setConfirmDelete(null)} title="確認刪除進貨記錄" width={420}>
+        <p style={{ color: 'var(--text-secondary)', marginBottom: 'var(--space-lg)' }}>
+          確定要刪除「<strong style={{ color: 'var(--text-primary)' }}>{confirmDelete?.itemName}</strong>」的進貨記錄嗎？此操作不會還原庫存，無法復原。
+        </p>
+        <div className="form-actions">
+          <NeonButton variant="secondary" onClick={() => setConfirmDelete(null)}>取消</NeonButton>
+          <NeonButton variant="danger" onClick={() => { deletePurchase(confirmDelete.id); setConfirmDelete(null) }}>確認刪除</NeonButton>
+        </div>
       </Modal>
     </div>
   )

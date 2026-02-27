@@ -4,6 +4,7 @@ import {
   collection, doc, setDoc, updateDoc, deleteDoc, onSnapshot, getDocs,
 } from 'firebase/firestore'
 import { db } from '../lib/firebase.js'
+import { logAudit } from '../utils/auditLogger.js'
 
 const INITIAL_ADMIN = {
   id: 'usr_admin_001',
@@ -43,6 +44,7 @@ const useAuthStore = create(
           return false
         }
         set({ currentUser: user, loginError: '' })
+        logAudit('login', `使用者登入：${user.displayName || user.username}`)
         return true
       },
 
@@ -64,6 +66,7 @@ const useAuthStore = create(
           createdAt: new Date().toISOString(),
         }
         await setDoc(doc(db, 'users', newUser.id), newUser)
+        logAudit('add_user', `新增使用者「${newUser.displayName}」帳號：${newUser.username}`)
         return { success: true }
       },
 
@@ -71,15 +74,19 @@ const useAuthStore = create(
         if (get().currentUser?.id === userId) {
           return { error: '不能刪除自己的帳號' }
         }
+        const user = get().users.find(u => u.id === userId)
         await deleteDoc(doc(db, 'users', userId))
+        logAudit('delete_user', `刪除使用者「${user?.displayName}」帳號：${user?.username}`)
         return { success: true }
       },
 
       updateUserPassword: async (userId, newPassword) => {
+        const user = get().users.find(u => u.id === userId)
         await updateDoc(doc(db, 'users', userId), { password: newPassword })
         if (get().currentUser?.id === userId) {
           set(state => ({ currentUser: { ...state.currentUser, password: newPassword } }))
         }
+        logAudit('edit_user', `修改使用者「${user?.displayName}」密碼`)
         return { success: true }
       },
     }),

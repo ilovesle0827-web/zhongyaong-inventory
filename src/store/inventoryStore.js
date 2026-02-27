@@ -4,13 +4,13 @@ import {
   onSnapshot, runTransaction,
 } from 'firebase/firestore'
 import { db } from '../lib/firebase.js'
+import { logAudit } from '../utils/auditLogger.js'
 
 const useInventoryStore = create((set, get) => ({
   items: [],
   purchases: [],
   sales: [],
 
-  // 訂閱 Firestore 即時資料，回傳 unsubscribe 函式
   subscribeAll: () => {
     const unsub1 = onSnapshot(collection(db, 'items'), snap => {
       set({ items: snap.docs.map(d => ({ id: d.id, ...d.data() })) })
@@ -33,6 +33,7 @@ const useInventoryStore = create((set, get) => ({
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     })
+    logAudit('add_item', `新增商品「${item.name}」SKU：${item.sku}`)
     return { success: true }
   },
 
@@ -41,13 +42,16 @@ const useInventoryStore = create((set, get) => ({
       ...patch,
       updatedAt: new Date().toISOString(),
     })
+    logAudit('edit_item', `編輯商品「${patch.name}」SKU：${patch.sku}`)
   },
 
   deleteItem: async (id) => {
+    const item = get().items.find(i => i.id === id)
     await deleteDoc(doc(db, 'items', id))
+    logAudit('delete_item', `刪除商品「${item?.name}」SKU：${item?.sku}`)
   },
 
-  // ============ 進貨（原子寫入：建立記錄 + 增加庫存）============
+  // ============ 進貨 ============
   addPurchase: async (purchase) => {
     const item = get().items.find(i => i.id === purchase.itemId)
     if (!item) return { error: '找不到商品' }
@@ -77,6 +81,7 @@ const useInventoryStore = create((set, get) => ({
           createdAt: new Date().toISOString(),
         })
       })
+      logAudit('add_purchase', `新增進貨：${item.name} × ${purchase.quantity} 件，單價 NT$${purchase.costPerUnit}${purchase.updateCost ? '（已更新成本）' : ''}`)
       return { success: true }
     } catch (err) {
       return { error: err.message }
@@ -85,13 +90,16 @@ const useInventoryStore = create((set, get) => ({
 
   updatePurchase: async (id, patch) => {
     await updateDoc(doc(db, 'purchases', id), patch)
+    logAudit('edit_purchase', `編輯進貨記錄`)
   },
 
   deletePurchase: async (id) => {
+    const purchase = get().purchases.find(p => p.id === id)
     await deleteDoc(doc(db, 'purchases', id))
+    logAudit('delete_purchase', `刪除進貨記錄：${purchase?.itemName} × ${purchase?.quantity} 件`)
   },
 
-  // ============ 銷貨（原子寫入：建立記錄 + 扣減庫存）============
+  // ============ 銷貨 ============
   addSale: async (sale) => {
     const item = get().items.find(i => i.id === sale.itemId)
     if (!item) return { error: '找不到商品' }
@@ -127,6 +135,7 @@ const useInventoryStore = create((set, get) => ({
           createdAt: new Date().toISOString(),
         })
       })
+      logAudit('add_sale', `新增銷貨：${item.name} × ${sale.quantity} 件，售價 NT$${sale.sellPrice}`)
       return { success: true }
     } catch (err) {
       return { error: err.message }
@@ -134,7 +143,9 @@ const useInventoryStore = create((set, get) => ({
   },
 
   deleteSale: async (id) => {
+    const sale = get().sales.find(s => s.id === id)
     await deleteDoc(doc(db, 'sales', id))
+    logAudit('delete_sale', `刪除銷貨記錄：${sale?.itemName} × ${sale?.quantity} 件`)
   },
 }))
 
