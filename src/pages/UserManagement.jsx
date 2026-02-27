@@ -178,8 +178,8 @@ export default function UserManagement() {
       <Modal open={addModalOpen} onClose={() => setAddModalOpen(false)} title="新增使用者" width={560}>
         {addError && <div className="form-error" style={{ marginBottom: 12 }}>{addError}</div>}
         <AddUserForm
-          onSave={(data) => {
-            const result = addUser(data)
+          onSave={async (data) => {
+            const result = await addUser(data)
             if (result?.error) { setAddError(result.error); return }
             setAddModalOpen(false)
           }}
