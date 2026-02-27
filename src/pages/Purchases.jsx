@@ -82,11 +82,11 @@ function PurchaseForm({ items, onSave, onCancel }) {
 }
 
 export default function Purchases() {
-  const { purchases, items, initialize, addPurchase } = useInventoryStore()
+  const { purchases, items, subscribeAll, addPurchase } = useInventoryStore()
   const [modalOpen, setModalOpen] = useState(false)
   const [addError, setAddError] = useState('')
 
-  useEffect(() => { initialize() }, [])
+  useEffect(() => { const unsub = subscribeAll(); return () => unsub() }, [])
 
   const totalCost = purchases.reduce((s, p) => s + p.subtotal, 0)
   const totalQty = purchases.reduce((s, p) => s + p.quantity, 0)
@@ -139,8 +139,8 @@ export default function Purchases() {
         {addError && <div className="form-error" style={{ marginBottom: 12 }}>{addError}</div>}
         <PurchaseForm
           items={items}
-          onSave={(data) => {
-            const result = addPurchase(data)
+          onSave={async (data) => {
+            const result = await addPurchase(data)
             if (result?.error) { setAddError(result.error); return }
             setModalOpen(false)
           }}

@@ -86,13 +86,13 @@ function ItemForm({ initial, onSave, onCancel }) {
 
 export default function Inventory() {
   const { canDelete } = useAuth()
-  const { items, initialize, addItem, updateItem, deleteItem } = useInventoryStore()
+  const { items, subscribeAll, addItem, updateItem, deleteItem } = useInventoryStore()
   const [search, setSearch] = useState('')
   const [modalOpen, setModalOpen] = useState(false)
   const [editItem, setEditItem] = useState(null)
   const [confirmDelete, setConfirmDelete] = useState(null)
 
-  useEffect(() => { initialize() }, [])
+  useEffect(() => { const unsub = subscribeAll(); return () => unsub() }, [])
 
   const filtered = items.filter(i =>
     i.name.includes(search) || i.sku.includes(search) || i.category.includes(search)

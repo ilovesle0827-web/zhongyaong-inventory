@@ -1,131 +1,130 @@
 import { create } from 'zustand'
-import { persist } from 'zustand/middleware'
-import { seedItems, seedPurchases, seedSales } from '../data/seedData.js'
+import {
+  collection, doc, addDoc, updateDoc, deleteDoc,
+  onSnapshot, runTransaction,
+} from 'firebase/firestore'
+import { db } from '../lib/firebase.js'
 
-function generateId(prefix) {
-  return `${prefix}${Date.now().toString(36).toUpperCase()}${Math.random().toString(36).slice(2, 5).toUpperCase()}`
-}
+const useInventoryStore = create((set, get) => ({
+  items: [],
+  purchases: [],
+  sales: [],
 
-const useInventoryStore = create(
-  persist(
-    (set, get) => ({
-      items: [],
-      purchases: [],
-      sales: [],
-      initialized: false,
+  // 訂閱 Firestore 即時資料，回傳 unsubscribe 函式
+  subscribeAll: () => {
+    const unsub1 = onSnapshot(collection(db, 'items'), snap => {
+      set({ items: snap.docs.map(d => ({ id: d.id, ...d.data() })) })
+    })
+    const unsub2 = onSnapshot(collection(db, 'purchases'), snap => {
+      set({ purchases: snap.docs.map(d => ({ id: d.id, ...d.data() })) })
+    })
+    const unsub3 = onSnapshot(collection(db, 'sales'), snap => {
+      set({ sales: snap.docs.map(d => ({ id: d.id, ...d.data() })) })
+    })
+    return () => { unsub1(); unsub2(); unsub3() }
+  },
 
-      // 初始化種子資料
-      initialize: () => {
-        if (!get().initialized) {
-          set({ items: seedItems, purchases: seedPurchases, sales: seedSales, initialized: true })
-        }
-      },
+  // ============ 商品 CRUD ============
+  addItem: async (item) => {
+    await addDoc(collection(db, 'items'), {
+      ...item,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    })
+  },
 
-      // ============ 商品 CRUD ============
-      addItem: (item) => {
-        const newItem = {
-          ...item,
-          id: generateId('INV'),
-          createdAt: new Date().toISOString(),
+  updateItem: async (id, patch) => {
+    await updateDoc(doc(db, 'items', id), {
+      ...patch,
+      updatedAt: new Date().toISOString(),
+    })
+  },
+
+  deleteItem: async (id) => {
+    await deleteDoc(doc(db, 'items', id))
+  },
+
+  // ============ 進貨（原子寫入：建立記錄 + 增加庫存）============
+  addPurchase: async (purchase) => {
+    const item = get().items.find(i => i.id === purchase.itemId)
+    if (!item) return { error: '找不到商品' }
+
+    const subtotal = purchase.quantity * purchase.costPerUnit
+
+    try {
+      await runTransaction(db, async (tx) => {
+        const itemRef = doc(db, 'items', purchase.itemId)
+        const itemSnap = await tx.get(itemRef)
+        const currentQty = itemSnap.data().quantity
+
+        tx.update(itemRef, {
+          quantity: currentQty + purchase.quantity,
           updatedAt: new Date().toISOString(),
-        }
-        set(state => ({ items: [...state.items, newItem] }))
-      },
+        })
 
-      updateItem: (id, patch) => {
-        set(state => ({
-          items: state.items.map(item =>
-            item.id === id
-              ? { ...item, ...patch, updatedAt: new Date().toISOString() }
-              : item
-          ),
-        }))
-      },
-
-      deleteItem: (id) => {
-        set(state => ({ items: state.items.filter(item => item.id !== id) }))
-      },
-
-      // ============ 進貨 ============
-      addPurchase: (purchase) => {
-        const item = get().items.find(i => i.id === purchase.itemId)
-        if (!item) return { error: '找不到商品' }
-
-        const subtotal = purchase.quantity * purchase.costPerUnit
-        const newPurchase = {
+        const purchaseRef = doc(collection(db, 'purchases'))
+        tx.set(purchaseRef, {
           ...purchase,
-          id: generateId('PUR'),
           itemName: item.name,
           subtotal,
           createdAt: new Date().toISOString(),
+        })
+      })
+      return { success: true }
+    } catch (err) {
+      return { error: err.message }
+    }
+  },
+
+  deletePurchase: async (id) => {
+    await deleteDoc(doc(db, 'purchases', id))
+  },
+
+  // ============ 銷貨（原子寫入：建立記錄 + 扣減庫存）============
+  addSale: async (sale) => {
+    const item = get().items.find(i => i.id === sale.itemId)
+    if (!item) return { error: '找不到商品' }
+    if (item.quantity < sale.quantity) return { error: `庫存不足（現有 ${item.quantity} 件）` }
+
+    const revenue = sale.quantity * sale.sellPrice
+    const cost = sale.quantity * item.costPerUnit
+    const grossProfit = revenue - cost
+
+    try {
+      await runTransaction(db, async (tx) => {
+        const itemRef = doc(db, 'items', sale.itemId)
+        const itemSnap = await tx.get(itemRef)
+        const currentQty = itemSnap.data().quantity
+
+        if (currentQty < sale.quantity) {
+          throw new Error(`庫存不足（現有 ${currentQty} 件）`)
         }
 
-        set(state => ({
-          purchases: [...state.purchases, newPurchase],
-          items: state.items.map(i =>
-            i.id === purchase.itemId
-              ? { ...i, quantity: i.quantity + purchase.quantity, updatedAt: new Date().toISOString() }
-              : i
-          ),
-        }))
-        return { success: true, purchase: newPurchase }
-      },
+        tx.update(itemRef, {
+          quantity: currentQty - sale.quantity,
+          updatedAt: new Date().toISOString(),
+        })
 
-      deletePurchase: (id) => {
-        set(state => ({ purchases: state.purchases.filter(p => p.id !== id) }))
-      },
-
-      // ============ 銷貨 ============
-      addSale: (sale) => {
-        const item = get().items.find(i => i.id === sale.itemId)
-        if (!item) return { error: '找不到商品' }
-        if (item.quantity < sale.quantity) return { error: `庫存不足（現有 ${item.quantity} 件）` }
-
-        const revenue = sale.quantity * sale.sellPrice
-        const cost = sale.quantity * item.costPerUnit
-        const grossProfit = revenue - cost
-
-        const newSale = {
+        const saleRef = doc(collection(db, 'sales'))
+        tx.set(saleRef, {
           ...sale,
-          id: generateId('SAL'),
           itemName: item.name,
           costPerUnit: item.costPerUnit,
           revenue,
           cost,
           grossProfit,
           createdAt: new Date().toISOString(),
-        }
-
-        set(state => ({
-          sales: [...state.sales, newSale],
-          items: state.items.map(i =>
-            i.id === sale.itemId
-              ? { ...i, quantity: i.quantity - sale.quantity, updatedAt: new Date().toISOString() }
-              : i
-          ),
-        }))
-        return { success: true, sale: newSale }
-      },
-
-      deleteSale: (id) => {
-        set(state => ({ sales: state.sales.filter(s => s.id !== id) }))
-      },
-    }),
-    {
-      name: 'zhongyang-inventory',
-      version: 3,
-      // 從 v2 升級到 v3：清除所有商品示範資料，重設初始化狀態
-      migrate: (舊資料, 舊版本) => {
-        if (舊版本 === 1) {
-          return { ...舊資料, purchases: [], sales: [] }
-        }
-        if (舊版本 === 2) {
-          return { ...舊資料, items: [], initialized: false }
-        }
-        return 舊資料
-      },
+        })
+      })
+      return { success: true }
+    } catch (err) {
+      return { error: err.message }
     }
-  )
-)
+  },
+
+  deleteSale: async (id) => {
+    await deleteDoc(doc(db, 'sales', id))
+  },
+}))
 
 export default useInventoryStore

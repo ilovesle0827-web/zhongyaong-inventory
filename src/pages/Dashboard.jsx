@@ -17,12 +17,13 @@ import { formatCurrency } from '../utils/formatters.js'
 import styles from './Dashboard.module.css'
 
 export default function Dashboard() {
-  const { items, sales, purchases, initialize } = useInventoryStore()
-  const { customers, initialize: initCustomers } = useCustomerStore()
+  const { items, sales, purchases, subscribeAll } = useInventoryStore()
+  const { customers, subscribeAll: subCustomers } = useCustomerStore()
 
   useEffect(() => {
-    initialize()
-    initCustomers()
+    const unsub1 = subscribeAll()
+    const unsub2 = subCustomers()
+    return () => { unsub1(); unsub2() }
   }, [])
 
   const monthly = getMonthlyStats(sales)

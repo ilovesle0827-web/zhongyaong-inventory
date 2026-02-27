@@ -96,12 +96,16 @@ function SaleForm({ items, customers, onSave, onCancel }) {
 }
 
 export default function Sales() {
-  const { sales, items, initialize, addSale } = useInventoryStore()
-  const { customers, initialize: initCustomers } = useCustomerStore()
+  const { sales, items, subscribeAll, addSale } = useInventoryStore()
+  const { customers, subscribeAll: subCustomers } = useCustomerStore()
   const [modalOpen, setModalOpen] = useState(false)
   const [addError, setAddError] = useState('')
 
-  useEffect(() => { initialize(); initCustomers() }, [])
+  useEffect(() => {
+    const unsub1 = subscribeAll()
+    const unsub2 = subCustomers()
+    return () => { unsub1(); unsub2() }
+  }, [])
 
   const monthly = getMonthlyStats(sales)
   const margin = getGrossMargin(monthly.revenue, monthly.cost)
@@ -178,8 +182,8 @@ export default function Sales() {
         <SaleForm
           items={items}
           customers={customers}
-          onSave={(data) => {
-            const result = addSale(data)
+          onSave={async (data) => {
+            const result = await addSale(data)
             if (result?.error) { setAddError(result.error); return }
             setModalOpen(false)
           }}

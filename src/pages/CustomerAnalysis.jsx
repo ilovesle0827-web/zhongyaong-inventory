@@ -67,11 +67,15 @@ function CustomerForm({ onSave, onCancel }) {
 }
 
 export default function CustomerAnalysis() {
-  const { customers, initialize, addCustomer } = useCustomerStore()
-  const { sales, initialize: initInv } = useInventoryStore()
+  const { customers, subscribeAll, addCustomer } = useCustomerStore()
+  const { sales, subscribeAll: subInv } = useInventoryStore()
   const [modalOpen, setModalOpen] = useState(false)
 
-  useEffect(() => { initialize(); initInv() }, [])
+  useEffect(() => {
+    const unsub1 = subscribeAll()
+    const unsub2 = subInv()
+    return () => { unsub1(); unsub2() }
+  }, [])
 
   const maleCount = customers.filter(c => c.gender === 'male').length
   const femaleCount = customers.filter(c => c.gender === 'female').length

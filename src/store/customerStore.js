@@ -1,57 +1,35 @@
 import { create } from 'zustand'
-import { persist } from 'zustand/middleware'
-import { seedCustomers } from '../data/seedData.js'
+import {
+  collection, doc, addDoc, updateDoc, deleteDoc, onSnapshot,
+} from 'firebase/firestore'
+import { db } from '../lib/firebase.js'
 
-function generateId() {
-  return `CUST${Date.now().toString(36).toUpperCase()}${Math.random().toString(36).slice(2, 5).toUpperCase()}`
-}
+const useCustomerStore = create((set) => ({
+  customers: [],
 
-const useCustomerStore = create(
-  persist(
-    (set, get) => ({
-      customers: [],
-      initialized: false,
+  // 訂閱 Firestore 即時資料，回傳 unsubscribe 函式
+  subscribeAll: () => {
+    const unsub = onSnapshot(collection(db, 'customers'), snap => {
+      set({ customers: snap.docs.map(d => ({ id: d.id, ...d.data() })) })
+    })
+    return unsub
+  },
 
-      initialize: () => {
-        if (!get().initialized) {
-          set({ customers: seedCustomers, initialized: true })
-        }
-      },
+  addCustomer: async (customer) => {
+    const ref = await addDoc(collection(db, 'customers'), {
+      ...customer,
+      createdAt: new Date().toISOString(),
+    })
+    return { id: ref.id, ...customer, createdAt: new Date().toISOString() }
+  },
 
-      addCustomer: (customer) => {
-        const newCustomer = {
-          ...customer,
-          id: generateId(),
-          createdAt: new Date().toISOString(),
-        }
-        set(state => ({ customers: [...state.customers, newCustomer] }))
-        return newCustomer
-      },
+  updateCustomer: async (id, patch) => {
+    await updateDoc(doc(db, 'customers', id), patch)
+  },
 
-      updateCustomer: (id, patch) => {
-        set(state => ({
-          customers: state.customers.map(c =>
-            c.id === id ? { ...c, ...patch } : c
-          ),
-        }))
-      },
-
-      deleteCustomer: (id) => {
-        set(state => ({ customers: state.customers.filter(c => c.id !== id) }))
-      },
-    }),
-    {
-      name: 'zhongyang-customers',
-      version: 2,
-      // 從 v1 升級到 v2：清除所有示範客戶資料
-      migrate: (舊資料, 舊版本) => {
-        if (舊版本 === 1) {
-          return { ...舊資料, customers: [], initialized: false }
-        }
-        return 舊資料
-      },
-    }
-  )
-)
+  deleteCustomer: async (id) => {
+    await deleteDoc(doc(db, 'customers', id))
+  },
+}))
 
 export default useCustomerStore
