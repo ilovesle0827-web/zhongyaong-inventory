@@ -5,19 +5,19 @@ import DataTable from '../components/ui/DataTable.jsx'
 import NeonButton from '../components/ui/NeonButton.jsx'
 import Modal from '../components/ui/Modal.jsx'
 import useInventoryStore from '../store/inventoryStore.js'
-import useCustomerStore from '../store/customerStore.js'
 import { useAuth } from '../auth/useAuth.js'
 import { getMonthlyStats, getGrossMargin } from '../utils/calculations.js'
 import { formatCurrency, formatDate, formatPercent } from '../utils/formatters.js'
 import styles from './Sales.module.css'
 
-function SaleForm({ items, customers, onSave, onCancel }) {
+function SaleForm({ items, onSave, onCancel }) {
   const [form, setForm] = useState({
     itemId: items[0]?.id || '',
     quantity: '',
     sellPrice: '',
     saleDate: new Date().toISOString().slice(0, 10),
-    customerId: '',
+    customerName: '',
+    customerGender: '',
   })
   const [error, setError] = useState('')
 
@@ -40,7 +40,8 @@ function SaleForm({ items, customers, onSave, onCancel }) {
       ...form,
       quantity: Number(form.quantity),
       sellPrice: Number(form.sellPrice),
-      customerId: form.customerId || null,
+      customerName: form.customerName.trim() || null,
+      customerGender: form.customerGender || null,
     })
   }
 
@@ -73,12 +74,20 @@ function SaleForm({ items, customers, onSave, onCancel }) {
           <input className="form-input" type="date" value={form.saleDate} onChange={e => set('saleDate', e.target.value)} />
         </div>
         <div className="form-group">
-          <label className="form-label">客戶（選填）</label>
-          <select className="form-input" value={form.customerId} onChange={e => set('customerId', e.target.value)}>
+          <label className="form-label">個案姓名（選填）</label>
+          <input className="form-input" value={form.customerName} onChange={e => set('customerName', e.target.value)} placeholder="輸入個案姓名" />
+        </div>
+      </div>
+      <div className="form-row">
+        <div className="form-group">
+          <label className="form-label">性別（選填）</label>
+          <select className="form-input" value={form.customerGender} onChange={e => set('customerGender', e.target.value)}>
             <option value="">-- 不指定 --</option>
-            {customers.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+            <option value="男">男</option>
+            <option value="女">女</option>
           </select>
         </div>
+        <div className="form-group" />
       </div>
       {revenue > 0 && (
         <div className={styles.profitPreview}>
@@ -99,15 +108,13 @@ function SaleForm({ items, customers, onSave, onCancel }) {
 export default function Sales() {
   const { canDelete } = useAuth()
   const { sales, items, subscribeAll, addSale, deleteSale } = useInventoryStore()
-  const { customers, subscribeAll: subCustomers } = useCustomerStore()
   const [modalOpen, setModalOpen] = useState(false)
   const [addError, setAddError] = useState('')
   const [confirmDelete, setConfirmDelete] = useState(null)
 
   useEffect(() => {
-    const unsub1 = subscribeAll()
-    const unsub2 = subCustomers()
-    return () => { unsub1(); unsub2() }
+    const unsub = subscribeAll()
+    return () => unsub()
   }, [])
 
   const monthly = getMonthlyStats(sales)
@@ -141,12 +148,12 @@ export default function Sales() {
       )
     },
     {
-      key: 'customerId', label: '客戶', width: 90,
-      render: (val, row) => {
-        if (!val) return <span style={{ color: 'var(--text-muted)' }}>-</span>
-        const c = customers.find(c => c.id === val)
-        return <span style={{ color: 'var(--neon-blue)' }}>{c?.name || val}</span>
-      }
+      key: 'customerName', label: '個案姓名', width: 100,
+      render: val => val ? <span style={{ color: 'var(--neon-blue)' }}>{val}</span> : <span style={{ color: 'var(--text-muted)' }}>-</span>
+    },
+    {
+      key: 'customerGender', label: '性別', width: 60, align: 'center',
+      render: val => val ? <span>{val}</span> : <span style={{ color: 'var(--text-muted)' }}>-</span>
     },
     ...(canDelete ? [{
       key: 'actions', label: '操作', width: 70, align: 'center',
@@ -196,7 +203,6 @@ export default function Sales() {
         {addError && <div className="form-error" style={{ marginBottom: 12 }}>{addError}</div>}
         <SaleForm
           items={items}
-          customers={customers}
           onSave={async (data) => {
             const result = await addSale(data)
             if (result?.error) { setAddError(result.error); return }
