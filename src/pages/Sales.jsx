@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react'
-import { Plus, Trash2 } from 'lucide-react'
+import { Plus, Pencil, Trash2, Download } from 'lucide-react'
 import GlassCard from '../components/ui/GlassCard.jsx'
 import DataTable from '../components/ui/DataTable.jsx'
 import NeonButton from '../components/ui/NeonButton.jsx'
@@ -18,6 +18,7 @@ function SaleForm({ items, onSave, onCancel }) {
     saleDate: new Date().toISOString().slice(0, 10),
     customerName: '',
     customerGender: '',
+    referrer: '',
   })
   const [error, setError] = useState('')
 
@@ -42,6 +43,7 @@ function SaleForm({ items, onSave, onCancel }) {
       sellPrice: Number(form.sellPrice),
       customerName: form.customerName.trim() || null,
       customerGender: form.customerGender || null,
+      referrer: form.referrer.trim() || null,
     })
   }
 
@@ -87,7 +89,10 @@ function SaleForm({ items, onSave, onCancel }) {
             <option value="女">女</option>
           </select>
         </div>
-        <div className="form-group" />
+        <div className="form-group">
+          <label className="form-label">轉介者（選填）</label>
+          <input className="form-input" value={form.referrer} onChange={e => set('referrer', e.target.value)} placeholder="輸入轉介者名稱" />
+        </div>
       </div>
       {revenue > 0 && (
         <div className={styles.profitPreview}>
@@ -105,10 +110,102 @@ function SaleForm({ items, onSave, onCancel }) {
   )
 }
 
+function EditSaleForm({ sale, onSave, onCancel }) {
+  const [form, setForm] = useState({
+    saleDate: sale.saleDate || new Date().toISOString().slice(0, 10),
+    customerName: sale.customerName || '',
+    customerGender: sale.customerGender || '',
+    referrer: sale.referrer || '',
+  })
+
+  function set(field, val) { setForm(f => ({ ...f, [field]: val })) }
+
+  function handleSubmit(e) {
+    e.preventDefault()
+    onSave({
+      ...form,
+      customerName: form.customerName.trim() || null,
+      customerGender: form.customerGender || null,
+      referrer: form.referrer.trim() || null,
+    })
+  }
+
+  return (
+    <form onSubmit={handleSubmit}>
+      <div className="form-group">
+        <label className="form-label">商品名稱</label>
+        <input className="form-input" value={sale.itemName} disabled style={{ opacity: 0.5 }} />
+      </div>
+      <div className="form-row">
+        <div className="form-group">
+          <label className="form-label">數量</label>
+          <input className="form-input" value={sale.quantity} disabled style={{ opacity: 0.5 }} />
+        </div>
+        <div className="form-group">
+          <label className="form-label">售價</label>
+          <input className="form-input" value={formatCurrency(sale.sellPrice)} disabled style={{ opacity: 0.5 }} />
+        </div>
+      </div>
+      <div className="form-group">
+        <label className="form-label">銷售日期</label>
+        <input className="form-input" type="date" value={form.saleDate} onChange={e => set('saleDate', e.target.value)} />
+      </div>
+      <div className="form-row">
+        <div className="form-group">
+          <label className="form-label">個案姓名</label>
+          <input className="form-input" value={form.customerName} onChange={e => set('customerName', e.target.value)} placeholder="輸入個案姓名" />
+        </div>
+        <div className="form-group">
+          <label className="form-label">性別</label>
+          <select className="form-input" value={form.customerGender} onChange={e => set('customerGender', e.target.value)}>
+            <option value="">-- 不指定 --</option>
+            <option value="男">男</option>
+            <option value="女">女</option>
+          </select>
+        </div>
+      </div>
+      <div className="form-group">
+        <label className="form-label">轉介者</label>
+        <input className="form-input" value={form.referrer} onChange={e => set('referrer', e.target.value)} placeholder="輸入轉介者名稱" />
+      </div>
+      <div className="form-actions">
+        <NeonButton variant="secondary" onClick={onCancel}>取消</NeonButton>
+        <NeonButton type="submit" variant="primary">儲存修改</NeonButton>
+      </div>
+    </form>
+  )
+}
+
+function exportToCSV(sales) {
+  const headers = ['銷售日期', '商品名稱', '數量', '售價', '收入', '成本', '毛利', '個案姓名', '性別', '轉介者']
+  const rows = sales.map(s => [
+    s.saleDate || '',
+    s.itemName || '',
+    s.quantity || 0,
+    s.sellPrice || 0,
+    s.revenue || 0,
+    s.cost || 0,
+    s.grossProfit || 0,
+    s.customerName || '',
+    s.customerGender || '',
+    s.referrer || '',
+  ])
+  const csv = [headers, ...rows].map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n')
+  const bom = '﻿'
+  const blob = new Blob([bom + csv], { type: 'text/csv;charset=utf-8;' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `銷貨報表_${new Date().toISOString().slice(0, 10)}.csv`
+  a.click()
+  URL.revokeObjectURL(url)
+}
+
 export default function Sales() {
   const { canDelete } = useAuth()
-  const { sales, items, subscribeAll, addSale, deleteSale } = useInventoryStore()
+  const { sales, items, subscribeAll, addSale, updateSale, deleteSale } = useInventoryStore()
   const [modalOpen, setModalOpen] = useState(false)
+  const [editSale, setEditSale] = useState(null)
   const [addError, setAddError] = useState('')
   const [confirmDelete, setConfirmDelete] = useState(null)
 
@@ -153,20 +250,35 @@ export default function Sales() {
     },
     {
       key: 'customerGender', label: '性別', width: 60, align: 'center',
-      render: val => val ? <span>{val}</span> : <span style={{ color: 'var(--text-muted)' }}>-</span>
+      render: val => val || <span style={{ color: 'var(--text-muted)' }}>-</span>
     },
-    ...(canDelete ? [{
-      key: 'actions', label: '操作', width: 70, align: 'center',
+    {
+      key: 'referrer', label: '轉介者', width: 90,
+      render: val => val || <span style={{ color: 'var(--text-muted)' }}>-</span>
+    },
+    {
+      key: 'actions', label: '操作', width: canDelete ? 90 : 60, align: 'center',
       render: (_, row) => (
-        <button
-          style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--neon-red)', padding: 4 }}
-          onClick={e => { e.stopPropagation(); setConfirmDelete(row) }}
-          title="刪除"
-        >
-          <Trash2 size={14} />
-        </button>
+        <div style={{ display: 'flex', gap: 4, justifyContent: 'center' }}>
+          <button
+            style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)', padding: 4 }}
+            onClick={e => { e.stopPropagation(); setEditSale(row) }}
+            title="編輯"
+          >
+            <Pencil size={14} />
+          </button>
+          {canDelete && (
+            <button
+              style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--neon-red)', padding: 4 }}
+              onClick={e => { e.stopPropagation(); setConfirmDelete(row) }}
+              title="刪除"
+            >
+              <Trash2 size={14} />
+            </button>
+          )}
+        </div>
       )
-    }] : []),
+    },
   ]
 
   return (
@@ -190,9 +302,14 @@ export default function Sales() {
             <div className={`${styles.miniValue} ${styles.cyan}`}>{formatPercent(margin)}</div>
           </GlassCard>
         </div>
-        <NeonButton icon={<Plus size={16} />} onClick={() => { setModalOpen(true); setAddError('') }}>
-          新增銷貨
-        </NeonButton>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <NeonButton variant="secondary" icon={<Download size={16} />} onClick={() => exportToCSV(sales)}>
+            匯出報表
+          </NeonButton>
+          <NeonButton icon={<Plus size={16} />} onClick={() => { setModalOpen(true); setAddError('') }}>
+            新增銷貨
+          </NeonButton>
+        </div>
       </div>
 
       <GlassCard noPad>
@@ -210,6 +327,19 @@ export default function Sales() {
           }}
           onCancel={() => setModalOpen(false)}
         />
+      </Modal>
+
+      <Modal open={!!editSale} onClose={() => setEditSale(null)} title="編輯銷貨記錄" width={480}>
+        {editSale && (
+          <EditSaleForm
+            sale={editSale}
+            onSave={async (data) => {
+              await updateSale(editSale.id, data)
+              setEditSale(null)
+            }}
+            onCancel={() => setEditSale(null)}
+          />
+        )}
       </Modal>
 
       <Modal open={!!confirmDelete} onClose={() => setConfirmDelete(null)} title="確認刪除銷貨記錄" width={420}>

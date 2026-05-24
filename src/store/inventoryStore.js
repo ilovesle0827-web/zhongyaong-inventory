@@ -142,6 +142,11 @@ const useInventoryStore = create((set, get) => ({
     }
   },
 
+  updateSale: async (id, patch) => {
+    await updateDoc(doc(db, 'sales', id), { ...patch, updatedAt: new Date().toISOString() })
+    logAudit('edit_sale', `編輯銷貨記錄`)
+  },
+
   deleteSale: async (id) => {
     const sale = get().sales.find(s => s.id === id)
     await deleteDoc(doc(db, 'sales', id))
